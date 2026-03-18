@@ -7,6 +7,7 @@ import {
   where, 
   orderBy, 
   addDoc, 
+  updateDoc,
   serverTimestamp 
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { db } from '../firebase.js';
@@ -56,6 +57,20 @@ export const createProduct = async (productData) => {
     return await addDoc(collection(db, path), {
       ...productData,
       createdAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+    throw error;
+  }
+};
+
+export const updateProduct = async (id, productData) => {
+  const path = `products/${id}`;
+  try {
+    const docRef = doc(db, 'products', id);
+    await updateDoc(docRef, {
+      ...productData,
+      updatedAt: serverTimestamp()
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);

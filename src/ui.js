@@ -1,4 +1,4 @@
-import { getProducts, createOrder, createProduct } from './api/db.js';
+import { getProducts, getProduct, createOrder, createProduct, updateProduct } from './api/db.js';
 import { Cart } from './modules/cart.js';
 import { login, logout, observeAuth, isAdmin } from './api/auth.js';
 
@@ -6,10 +6,19 @@ const appContainer = document.getElementById('app');
 let currentUser = null;
 
 export const initUI = () => {
+  const navigate = () => {
+    const hash = window.location.hash;
+    if (hash === '#cart') renderCartPage();
+    else if (hash === '#admin') renderAdminPage();
+    else if (hash.startsWith('#admin/edit/')) renderEditProductPage(hash.split('#admin/edit/')[1]);
+    else if (hash.startsWith('#product/')) renderProductPage(hash.split('/')[1]);
+    else renderHome();
+  };
+
   observeAuth((user) => {
     currentUser = user;
     renderNavbar();
-    renderHome();
+    navigate();
   });
 
   window.addEventListener('cart-updated', () => {
@@ -18,13 +27,10 @@ export const initUI = () => {
   });
 
   // Simple router
-  window.addEventListener('hashchange', () => {
-    const hash = window.location.hash;
-    if (hash === '#cart') renderCartPage();
-    else if (hash === '#admin') renderAdminPage();
-    else if (hash.startsWith('#product/')) renderProductPage(hash.split('/')[1]);
-    else renderHome();
-  });
+  window.addEventListener('hashchange', navigate);
+
+  // Expose navigate for same-hash re-navigation
+  window._navigate = navigate;
 };
 
 const renderNavbar = () => {
@@ -45,9 +51,24 @@ const renderNavbar = () => {
           </button>
           ${currentUser ? `
             <div class="flex items-center space-x-2">
-              ${isAdmin(currentUser) ? `<button onclick="window.location.hash='#admin'" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 mr-4">Admin Panel</button>` : ''}
-              <img src="${currentUser.photoURL}" class="h-8 w-8 rounded-full border border-gray-200">
-              <button id="logout-btn" class="text-sm font-medium text-gray-700 hover:text-red-600">Salir</button>
+              ${isAdmin(currentUser) ? `<button onclick="window.location.hash='#admin'" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 mr-2">Admin Panel</button>` : ''}
+              <div class="relative" id="user-menu-container">
+                <button id="user-menu-btn" class="flex items-center focus:outline-none">
+                  <img src="${currentUser.photoURL}" class="h-9 w-9 rounded-full border-2 border-gray-200 hover:border-indigo-400 transition-colors cursor-pointer" alt="Avatar">
+                </button>
+                <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                  <div class="px-4 py-3 border-b border-gray-100">
+                    <p class="text-sm font-semibold text-gray-900 truncate">${currentUser.displayName || ''}</p>
+                    <p class="text-xs text-gray-500 truncate">${currentUser.email || ''}</p>
+                  </div>
+                  <button id="logout-btn" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>Cerrar sesi\u00f3n</span>
+                  </button>
+                </div>
+              </div>
             </div>
           ` : `
             <button id="login-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">Entrar</button>
@@ -59,6 +80,24 @@ const renderNavbar = () => {
 
   document.getElementById('login-btn')?.addEventListener('click', login);
   document.getElementById('logout-btn')?.addEventListener('click', logout);
+
+  // Toggle dropdown on avatar click
+  const menuBtn = document.getElementById('user-menu-btn');
+  const dropdown = document.getElementById('user-dropdown');
+  if (menuBtn && dropdown) {
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('hidden');
+    });
+    dropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    document.addEventListener('click', () => {
+      if (!dropdown.classList.contains('hidden')) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  }
 };
 
 const renderHome = async () => {
@@ -236,52 +275,82 @@ const handleCheckout = async () => {
   }
 };
 
-const renderAdminPage = () => {
+const renderAdminPage = async () => {
   if (!isAdmin(currentUser)) {
     window.location.hash = '';
     return;
   }
 
   appContainer.innerHTML = `
-    <div class="py-8 max-w-2xl mx-auto">
-      <h1 class="text-3xl font-extrabold text-gray-900 mb-8">Panel de Administración</h1>
+    <div class="py-8 max-w-4xl mx-auto">
+      <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-extrabold text-gray-900">Panel de Administración</h1>
+      </div>
+
+      <!-- Create new product form (collapsible) -->
+      <div class="bg-white rounded-3xl shadow-sm border border-gray-100 mb-10">
+        <button id="toggle-create-form" type="button" class="w-full p-8 flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded-3xl transition-colors">
+          <h2 class="text-xl font-bold text-gray-900">Agregar Nuevo Producto</h2>
+          <svg id="toggle-chevron" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div id="create-form-body" class="hidden px-8 pb-8">
+          <form id="add-product-form" class="space-y-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+              <input type="text" id="prod-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Descripci\u00f3n</label>
+              <textarea id="prod-desc" required rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Precio ($)</label>
+                <input type="number" id="prod-price" required min="0" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                <input type="number" id="prod-stock" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Categor\u00eda</label>
+              <input type="text" id="prod-category" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">URL de la Imagen (Opcional)</label>
+              <input type="url" id="prod-image" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
+              Crear Producto
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Existing products list -->
       <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <h2 class="text-xl font-bold text-gray-900 mb-6">Agregar Nuevo Producto</h2>
-        <form id="add-product-form" class="space-y-6">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-            <input type="text" id="prod-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+        <h2 class="text-xl font-bold text-gray-900 mb-6">Productos Existentes</h2>
+        <div id="admin-product-list">
+          <div class="flex justify-center py-8">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-            <textarea id="prod-desc" required rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Precio ($)</label>
-              <input type="number" id="prod-price" required min="0" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-              <input type="number" id="prod-stock" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-            <input type="text" id="prod-category" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">URL de la Imagen (Opcional)</label>
-            <input type="url" id="prod-image" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-          </div>
-          <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
-            Crear Producto
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   `;
 
+  // Toggle collapsible create form
+  document.getElementById('toggle-create-form').addEventListener('click', () => {
+    const body = document.getElementById('create-form-body');
+    const chevron = document.getElementById('toggle-chevron');
+    body.classList.toggle('hidden');
+    chevron.style.transform = body.classList.contains('hidden') ? '' : 'rotate(180deg)';
+  });
+
+  // Handle create form
   document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button');
@@ -301,12 +370,149 @@ const renderAdminPage = () => {
     try {
       await createProduct(newProduct);
       alert('Producto creado exitosamente!');
-      window.location.hash = ''; // Go back to home to see the new product
+      renderAdminPage(); // Refresh the admin page to show the new product
     } catch (error) {
       console.error('Error adding product:', error);
       alert('Hubo un error al crear el producto.');
       btn.disabled = false;
       btn.textContent = 'Crear Producto';
+    }
+  });
+
+  // Load existing products
+  const products = await getProducts();
+  const listContainer = document.getElementById('admin-product-list');
+
+  if (!products || products.length === 0) {
+    listContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No hay productos aún.</p>';
+    return;
+  }
+
+  listContainer.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="border-b border-gray-200">
+            <th class="pb-3 text-sm font-semibold text-gray-500">Imagen</th>
+            <th class="pb-3 text-sm font-semibold text-gray-500">Nombre</th>
+            <th class="pb-3 text-sm font-semibold text-gray-500">Categoría</th>
+            <th class="pb-3 text-sm font-semibold text-gray-500">Precio</th>
+            <th class="pb-3 text-sm font-semibold text-gray-500">Stock</th>
+            <th class="pb-3 text-sm font-semibold text-gray-500">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${products.map(p => `
+            <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+              <td class="py-3 pr-4">
+                <img src="${p.images?.[0] || 'https://picsum.photos/seed/'+p.id+'/400/300'}" class="h-12 w-12 rounded-lg object-cover" alt="${p.name}">
+              </td>
+              <td class="py-3 pr-4 font-medium text-gray-900">${p.name}</td>
+              <td class="py-3 pr-4 text-sm text-indigo-600">${p.category}</td>
+              <td class="py-3 pr-4 font-bold text-gray-900">$${p.price}</td>
+              <td class="py-3 pr-4 text-sm text-gray-600">${p.stock ?? '—'}</td>
+              <td class="py-3">
+                <button onclick="window.location.hash='#admin/edit/${p.id}'" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+                  Editar
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+const renderEditProductPage = async (id) => {
+  if (!isAdmin(currentUser)) {
+    window.location.hash = '';
+    return;
+  }
+
+  appContainer.innerHTML = `<div class="flex justify-center py-24"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>`;
+  const p = await getProduct(id);
+
+  if (!p) {
+    alert('Producto no encontrado.');
+    window.location.hash = '#admin';
+    return;
+  }
+
+  appContainer.innerHTML = `
+    <div class="py-8 max-w-2xl mx-auto">
+      <button onclick="window.location.hash='#admin'" class="mb-6 flex items-center text-indigo-600 hover:underline">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+        </svg>
+        Volver al panel
+      </button>
+      <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h2 class="text-xl font-bold text-gray-900 mb-6">Editar Producto</h2>
+        <form id="edit-product-form" class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <input type="text" id="edit-name" required value="${p.name}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea id="edit-desc" required rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">${p.description || ''}</textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Precio ($)</label>
+              <input type="number" id="edit-price" required min="0" step="0.01" value="${p.price}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+              <input type="number" id="edit-stock" required min="0" value="${p.stock || 0}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+            <input type="text" id="edit-category" required value="${p.category}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">URL de la Imagen</label>
+            <input type="url" id="edit-image" value="${p.images?.[0] || ''}" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div class="flex items-center space-x-3">
+            <input type="checkbox" id="edit-active" ${p.active ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+            <label for="edit-active" class="text-sm font-medium text-gray-700">Producto activo (visible en el catálogo)</label>
+          </div>
+          <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
+            Guardar Cambios
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('edit-product-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    const updatedData = {
+      name: document.getElementById('edit-name').value,
+      description: document.getElementById('edit-desc').value,
+      price: parseFloat(document.getElementById('edit-price').value),
+      stock: parseInt(document.getElementById('edit-stock').value, 10),
+      category: document.getElementById('edit-category').value,
+      images: [document.getElementById('edit-image').value || p.images?.[0] || 'https://picsum.photos/seed/' + p.id + '/400/300'],
+      active: document.getElementById('edit-active').checked
+    };
+
+    try {
+      await updateProduct(id, updatedData);
+      alert('Producto actualizado exitosamente!');
+      window.location.hash = '#admin';
+    } catch (error) {
+      console.error('Error updating product:', error);
+      alert('Hubo un error al actualizar el producto.');
+      btn.disabled = false;
+      btn.textContent = 'Guardar Cambios';
     }
   });
 };
