@@ -148,12 +148,14 @@ const renderHome = async () => {
 
 const renderProductPage = async (id) => {
   appContainer.innerHTML = `<div class="flex justify-center py-24"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>`;
-  const p = await getProducts().then(prods => prods.find(x => x.id === id)); // Simple find for demo
+  const p = await getProducts().then(prods => prods.find(x => x.id === id));
   
   if (!p) {
     renderHome();
     return;
   }
+
+  const images = p.images?.length ? p.images : ['https://picsum.photos/seed/'+p.id+'/800/600'];
 
   appContainer.innerHTML = `
     <div class="py-8">
@@ -161,11 +163,18 @@ const renderProductPage = async (id) => {
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
         </svg>
-        Volver al catálogo
+        Volver al cat\u00e1logo
       </button>
       <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden lg:flex">
         <div class="lg:w-1/2">
-          <img src="${p.images?.[0] || 'https://picsum.photos/seed/'+p.id+'/800/600'}" class="w-full h-96 object-cover" alt="${p.name}">
+          <img id="main-product-img" src="${images[0]}" class="w-full h-96 object-cover" alt="${p.name}">
+          ${images.length > 1 ? `
+            <div class="flex gap-2 p-4 overflow-x-auto">
+              ${images.map((img, i) => `
+                <img src="${img}" data-index="${i}" class="product-thumb h-16 w-16 rounded-lg object-cover cursor-pointer border-2 ${i === 0 ? 'border-indigo-500' : 'border-transparent'} hover:border-indigo-300 transition-colors flex-shrink-0" alt="Imagen ${i+1}">
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
         <div class="p-8 lg:w-1/2 flex flex-col justify-between">
           <div>
@@ -173,7 +182,7 @@ const renderProductPage = async (id) => {
             <h1 class="text-4xl font-extrabold text-gray-900 mt-2">${p.name}</h1>
             <p class="text-3xl font-bold text-gray-900 mt-4">$${p.price}</p>
             <div class="mt-6 prose prose-indigo text-gray-600">
-              <p>${p.description || 'Una pieza única fabricada con precisión mediante impresión 3D de alta calidad.'}</p>
+              <p>${p.description || 'Una pieza \u00fanica fabricada con precisi\u00f3n mediante impresi\u00f3n 3D de alta calidad.'}</p>
             </div>
           </div>
           <button id="add-btn" class="mt-8 w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">
@@ -183,6 +192,15 @@ const renderProductPage = async (id) => {
       </div>
     </div>
   `;
+
+  // Image gallery thumbnail clicks
+  document.querySelectorAll('.product-thumb').forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      document.getElementById('main-product-img').src = thumb.src;
+      document.querySelectorAll('.product-thumb').forEach(t => t.classList.replace('border-indigo-500', 'border-transparent'));
+      thumb.classList.replace('border-transparent', 'border-indigo-500');
+    });
+  });
 
   document.getElementById('add-btn').onclick = () => Cart.add(p);
 };
@@ -320,8 +338,16 @@ const renderAdminPage = async () => {
               <input type="text" id="prod-category" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">URL de la Imagen (Opcional)</label>
-              <input type="url" id="prod-image" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Im\u00e1genes (URLs)</label>
+              <div id="prod-images-container">
+                <div class="flex gap-2 mb-2">
+                  <input type="url" name="prod-image" placeholder="https://..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+              </div>
+              <button type="button" id="add-image-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 mt-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                Agregar otra imagen
+              </button>
             </div>
             <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
               Crear Producto
@@ -350,6 +376,19 @@ const renderAdminPage = async () => {
     chevron.style.transform = body.classList.contains('hidden') ? '' : 'rotate(180deg)';
   });
 
+  // Add image input for create form
+  document.getElementById('add-image-btn').addEventListener('click', () => {
+    const container = document.getElementById('prod-images-container');
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 mb-2';
+    row.innerHTML = `
+      <input type="url" name="prod-image" placeholder="https://..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+      <button type="button" class="text-gray-400 hover:text-red-500 px-2" title="Quitar">&times;</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+  });
+
   // Handle create form
   document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -363,7 +402,7 @@ const renderAdminPage = async () => {
       price: parseFloat(document.getElementById('prod-price').value),
       stock: parseInt(document.getElementById('prod-stock').value, 10),
       category: document.getElementById('prod-category').value,
-      images: [document.getElementById('prod-image').value || 'https://picsum.photos/seed/' + Date.now() + '/400/300'],
+      images: (() => { const imgs = [...document.querySelectorAll('[name="prod-image"]')].map(i => i.value).filter(v => v); return imgs.length ? imgs : ['https://picsum.photos/seed/' + Date.now() + '/400/300']; })(),
       active: true
     };
 
@@ -473,8 +512,19 @@ const renderEditProductPage = async (id) => {
             <input type="text" id="edit-category" required value="${p.category}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">URL de la Imagen</label>
-            <input type="url" id="edit-image" value="${p.images?.[0] || ''}" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Im\u00e1genes (URLs)</label>
+            <div id="edit-images-container">
+              ${(p.images || ['']).map(img => `
+                <div class="flex gap-2 mb-2">
+                  <input type="url" name="edit-image" value="${img}" placeholder="https://..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                  <button type="button" class="remove-edit-img text-gray-400 hover:text-red-500 px-2" title="Quitar">&times;</button>
+                </div>
+              `).join('')}
+            </div>
+            <button type="button" id="add-edit-image-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 mt-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+              Agregar otra imagen
+            </button>
           </div>
           <div class="flex items-center space-x-3">
             <input type="checkbox" id="edit-active" ${p.active ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
@@ -487,6 +537,23 @@ const renderEditProductPage = async (id) => {
       </div>
     </div>
   `;
+  // Add image input for edit form
+  document.getElementById('add-edit-image-btn').addEventListener('click', () => {
+    const container = document.getElementById('edit-images-container');
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 mb-2';
+    row.innerHTML = `
+      <input type="url" name="edit-image" placeholder="https://..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+      <button type="button" class="remove-edit-img text-gray-400 hover:text-red-500 px-2" title="Quitar">&times;</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+  });
+
+  // Remove image buttons for existing rows
+  document.querySelectorAll('.remove-edit-img').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.flex').remove());
+  });
 
   document.getElementById('edit-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -500,7 +567,7 @@ const renderEditProductPage = async (id) => {
       price: parseFloat(document.getElementById('edit-price').value),
       stock: parseInt(document.getElementById('edit-stock').value, 10),
       category: document.getElementById('edit-category').value,
-      images: [document.getElementById('edit-image').value || p.images?.[0] || 'https://picsum.photos/seed/' + p.id + '/400/300'],
+      images: [...document.querySelectorAll('[name="edit-image"]')].map(i => i.value).filter(v => v),
       active: document.getElementById('edit-active').checked
     };
 
