@@ -1,0 +1,5 @@
+{
+  "name": "3D Print PWA Store",
+  "description": "Tienda online de impresiones 3D optimizada para móviles, construida con Vanilla JS y Firebase.",
+  "requestFramePermissions": []
+}

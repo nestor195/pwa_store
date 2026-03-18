@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email == "nestor195.nt@gmail.com" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.description is string && data.description.size() < 1000 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string && data.category.size() < 50 &&
+             data.active is bool;
+    }
+
+    function isValidOrder(data) {
+      return data.userId == request.auth.uid &&
+             data.total is number && data.total >= 0 &&
+             data.items is list && data.items.size() > 0 && data.items.size() < 50 &&
+             data.status in ['pending', 'in_production', 'shipped', 'delivered', 'cancelled'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Products: Public read, Admin write
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidProduct(request.resource.data); 
+    }
+
+    // Users: Private profile
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && hasOnlyAllowedFields(['email', 'displayName', 'photoURL', 'lastLogin', 'role']) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user');
+      allow update: if isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role);
+    }
+
+    // Orders: Owner can create and read their own orders
+    match /orders/{orderId} {
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() && isValidOrder(request.resource.data); // Only admin can update status
+    }
+  }
+}

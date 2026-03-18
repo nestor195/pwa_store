@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A 3D printed creation available for sale.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the product" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "price": { "type": "number", "description": "Price in USD" },
+        "category": { "type": "string", "description": "Category (e.g., Decor, Tools)" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs of product images" },
+        "stock": { "type": "integer", "description": "Available units" },
+        "active": { "type": "boolean", "description": "Whether the product is visible in catalog" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price", "category", "active"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "city": { "type": "string" },
+            "zip": { "type": "string" }
+          }
+        },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer purchase order.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the customer" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productId": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "integer" }
+            }
+          }
+        },
+        "total": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_production", "shipped", "delivered", "cancelled"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "items", "total", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "products": { "schema": "Product", "description": "Public catalog of 3D prints" },
+    "users": { "schema": "User", "description": "Private user profiles" },
+    "orders": { "schema": "Order", "description": "Customer orders" }
+  }
+}
