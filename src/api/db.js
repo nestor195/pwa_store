@@ -38,6 +38,17 @@ export const getProduct = async (id) => {
   }
 };
 
+export const getOrders = async (userId) => {
+  const path = 'orders';
+  try {
+    const q = query(collection(db, path), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+};
+
 export const createOrder = async (orderData) => {
   const path = 'orders';
   try {

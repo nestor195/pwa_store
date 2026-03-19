@@ -1,4 +1,4 @@
-import { getProducts, getProduct, createOrder, createProduct, updateProduct } from './api/db.js';
+import { getProducts, getProduct, createOrder, createProduct, updateProduct, getOrders } from './api/db.js';
 import { Cart } from './modules/cart.js';
 import { login, logout, observeAuth, isAdmin } from './api/auth.js';
 
@@ -10,6 +10,7 @@ export const initUI = () => {
     const hash = window.location.hash;
     if (hash === '#cart') renderCartPage();
     else if (hash === '#admin') renderAdminPage();
+    else if (hash === '#orders') renderOrdersPage();
     else if (hash.startsWith('#admin/edit/')) renderEditProductPage(hash.split('#admin/edit/')[1]);
     else if (hash.startsWith('#product/')) renderProductPage(hash.split('/')[1]);
     else renderHome();
@@ -47,7 +48,7 @@ const renderNavbar = () => {
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            ${cartCount > 0 ? `<span class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">${cartCount}</span>` : ''}
+            ${cartCount > 0 ? `<span class="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-600 rounded-full leading-none">${cartCount > 99 ? '+99' : cartCount}</span>` : ''}
           </button>
           ${currentUser ? `
             <div class="flex items-center space-x-2">
@@ -61,6 +62,12 @@ const renderNavbar = () => {
                     <p class="text-sm font-semibold text-gray-900 truncate">${currentUser.displayName || ''}</p>
                     <p class="text-xs text-gray-500 truncate">${currentUser.email || ''}</p>
                   </div>
+                  <button onclick="window.location.hash='#orders'" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2 border-b border-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    <span>Mis compras</span>
+                  </button>
                   <button id="logout-btn" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center space-x-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -582,6 +589,59 @@ const renderEditProductPage = async (id) => {
       btn.textContent = 'Guardar Cambios';
     }
   });
+};
+
+const renderOrdersPage = async () => {
+  if (!currentUser) {
+    window.location.hash = '';
+    return;
+  }
+
+  appContainer.innerHTML = `<div class="flex justify-center py-24"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>`;
+  const orders = await getOrders(currentUser.uid);
+
+  appContainer.innerHTML = `
+    <div class="py-8 max-w-4xl mx-auto">
+      <button onclick="window.location.hash=''" class="mb-6 flex items-center text-indigo-600 hover:underline">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+        </svg>
+        Volver
+      </button>
+      <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-extrabold text-gray-900">Mis Compras</h1>
+      </div>
+      ${!orders || orders.length === 0 ? `
+        <div class="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <p class="text-gray-500 text-lg">A\u00fan no has realizado ning\u00fan pedido.</p>
+          <button onclick="window.location.hash=''" class="mt-4 text-indigo-600 font-bold hover:underline">Ir al cat\u00e1logo</button>
+        </div>
+      ` : `
+        <div class="space-y-6">
+          ${orders.map(order => `
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div>
+                <p class="text-sm text-gray-500 mb-1">Pedido del ${new Date(order.createdAt?.toDate?.() || Date.now()).toLocaleDateString()}</p>
+                <div class="font-medium text-gray-900 mb-2">
+                  ${order.items.map(item => `<span class="inline-block bg-gray-50 px-2 py-1 rounded text-sm border border-gray-100 mr-2 mb-2">${item.quantity}x ${item.name}</span>`).join('')}
+                </div>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                  ${order.status || 'Pendiente'}
+                </span>
+              </div>
+              <div class="mt-4 md:mt-0 text-left md:text-right w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
+                <p class="text-sm text-gray-500 mb-1">Total</p>
+                <p class="text-2xl font-bold text-indigo-600">$${order.total}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    </div>
+  `;
 };
 
 // Expose Cart to window for inline onclicks
