@@ -41,7 +41,8 @@ const renderNavbar = () => {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between h-16 items-center">
         <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.location.hash=''">
-          <span class="text-2xl font-bold text-indigo-600">3DPrint</span>
+          <img src="logo.png" class="h-8 w-8 mr-2" alt="Logo">
+          <span class="text-2xl font-bold text-indigo-600">4DPrint</span>
         </div>
         <div class="flex items-center space-x-4">
           <button onclick="window.location.hash='#cart'" class="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors">
@@ -111,8 +112,8 @@ const renderHome = async () => {
   appContainer.innerHTML = `
     <div class="py-8">
       <header class="mb-8">
-        <h1 class="text-3xl font-extrabold text-gray-900">Catálogo 3D</h1>
-        <p class="mt-2 text-gray-600">Explora nuestras creaciones únicas impresas en 3D.</p>
+        <h1 class="text-3xl font-extrabold text-gray-900">Catálogo 4D</h1>
+        <p class="mt-2 text-gray-600">Explora nuestras creaciones únicas impresas en 4D.</p>
       </header>
       <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         <div class="col-span-full flex justify-center py-12">
@@ -189,7 +190,7 @@ const renderProductPage = async (id) => {
             <h1 class="text-4xl font-extrabold text-gray-900 mt-2">${p.name}</h1>
             <p class="text-3xl font-bold text-gray-900 mt-4">$${p.price}</p>
             <div class="mt-6 prose prose-indigo text-gray-600">
-              <p>${p.description || 'Una pieza \u00fanica fabricada con precisi\u00f3n mediante impresi\u00f3n 3D de alta calidad.'}</p>
+              <p>${p.description || 'Una pieza única fabricada con precisión mediante impresión 4D de alta calidad.'}</p>
             </div>
           </div>
           <button id="add-btn" class="mt-8 w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">
