@@ -4,7 +4,9 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import { getStorage } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
 
 // Load config via fetch for native compatibility
-const response = await fetch('./firebase-applet-config.json');
+// Use import.meta.env.BASE_URL to handle subfolder deployments like GitHub Pages
+const configPath = `${import.meta.env.BASE_URL || './'}firebase-applet-config.json`;
+const response = await fetch(configPath);
 const firebaseConfig = await response.json();
 
 const app = initializeApp(firebaseConfig);

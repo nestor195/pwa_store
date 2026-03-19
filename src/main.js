@@ -14,7 +14,8 @@ initUI();
 // Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then(registration => {
+    const swPath = `${import.meta.env.BASE_URL || './'}sw.js`;
+    navigator.serviceWorker.register(swPath).then(registration => {
       console.log('Service Worker registered with scope:', registration.scope);
     }).catch(err => {
       console.error('Service Worker registration failed:', err);
