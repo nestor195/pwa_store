@@ -49,6 +49,17 @@ export const getOrders = async (userId) => {
   }
 };
 
+export const getAllOrders = async () => {
+  const path = 'orders';
+  try {
+    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+};
+
 export const createOrder = async (orderData) => {
   const path = 'orders';
   try {
@@ -81,6 +92,20 @@ export const updateProduct = async (id, productData) => {
     const docRef = doc(db, 'products', id);
     await updateDoc(docRef, {
       ...productData,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+    throw error;
+  }
+};
+
+export const updateOrderStatus = async (orderId, newStatus) => {
+  const path = `orders/${orderId}`;
+  try {
+    const docRef = doc(db, 'orders', orderId);
+    await updateDoc(docRef, {
+      status: newStatus,
       updatedAt: serverTimestamp()
     });
   } catch (error) {

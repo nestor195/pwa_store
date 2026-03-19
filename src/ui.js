@@ -1,4 +1,4 @@
-import { getProducts, getProduct, createOrder, createProduct, updateProduct, getOrders } from './api/db.js';
+import { getProducts, getProduct, createOrder, createProduct, updateProduct, getOrders, getAllOrders, updateOrderStatus } from './api/db.js';
 import { Cart } from './modules/cart.js';
 import { login, logout, observeAuth, isAdmin } from './api/auth.js';
 
@@ -364,9 +364,19 @@ const renderAdminPage = async () => {
       </div>
 
       <!-- Existing products list -->
-      <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+      <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 mb-10">
         <h2 class="text-xl font-bold text-gray-900 mb-6">Productos Existentes</h2>
         <div id="admin-product-list">
+          <div class="flex justify-center py-8">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders list -->
+      <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h2 class="text-xl font-bold text-gray-900 mb-6">Gesti\u00f3n de Pedidos</h2>
+        <div id="admin-order-list">
           <div class="flex justify-center py-8">
             <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
           </div>
@@ -425,49 +435,89 @@ const renderAdminPage = async () => {
     }
   });
 
-  // Load existing products
-  const products = await getProducts();
-  const listContainer = document.getElementById('admin-product-list');
+  // Load existing products and orders
+  const [products, orders] = await Promise.all([getProducts(), getAllOrders()]);
+  
+  const productListContainer = document.getElementById('admin-product-list');
+  const orderListContainer = document.getElementById('admin-order-list');
 
+  // Render Products
   if (!products || products.length === 0) {
-    listContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No hay productos aún.</p>';
-    return;
+    productListContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No hay productos a\u00fan.</p>';
+  } else {
+    productListContainer.innerHTML = `
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="pb-3 text-sm font-semibold text-gray-500">Imagen</th>
+              <th class="pb-3 text-sm font-semibold text-gray-500">Nombre</th>
+              <th class="pb-3 text-sm font-semibold text-gray-500">Categor\u00eda</th>
+              <th class="pb-3 text-sm font-semibold text-gray-500">Precio</th>
+              <th class="pb-3 text-sm font-semibold text-gray-500">Stock</th>
+              <th class="pb-3 text-sm font-semibold text-gray-500">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${products.map(p => `
+              <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <td class="py-3 pr-4">
+                  <img src="${p.images?.[0] || 'https://picsum.photos/seed/'+p.id+'/400/300'}" class="h-12 w-12 rounded-lg object-cover" alt="${p.name}">
+                </td>
+                <td class="py-3 pr-4 font-medium text-gray-900">${p.name}</td>
+                <td class="py-3 pr-4 text-sm text-indigo-600">${p.category}</td>
+                <td class="py-3 pr-4 font-bold text-gray-900">$${p.price}</td>
+                <td class="py-3 pr-4 text-sm text-gray-600">${p.stock ?? '\u2014'}</td>
+                <td class="py-3">
+                  <button onclick="window.location.hash='#admin/edit/${p.id}'" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
-  listContainer.innerHTML = `
-    <div class="overflow-x-auto">
-      <table class="w-full text-left">
-        <thead>
-          <tr class="border-b border-gray-200">
-            <th class="pb-3 text-sm font-semibold text-gray-500">Imagen</th>
-            <th class="pb-3 text-sm font-semibold text-gray-500">Nombre</th>
-            <th class="pb-3 text-sm font-semibold text-gray-500">Categoría</th>
-            <th class="pb-3 text-sm font-semibold text-gray-500">Precio</th>
-            <th class="pb-3 text-sm font-semibold text-gray-500">Stock</th>
-            <th class="pb-3 text-sm font-semibold text-gray-500">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${products.map(p => `
-            <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-              <td class="py-3 pr-4">
-                <img src="${p.images?.[0] || 'https://picsum.photos/seed/'+p.id+'/400/300'}" class="h-12 w-12 rounded-lg object-cover" alt="${p.name}">
-              </td>
-              <td class="py-3 pr-4 font-medium text-gray-900">${p.name}</td>
-              <td class="py-3 pr-4 text-sm text-indigo-600">${p.category}</td>
-              <td class="py-3 pr-4 font-bold text-gray-900">$${p.price}</td>
-              <td class="py-3 pr-4 text-sm text-gray-600">${p.stock ?? '—'}</td>
-              <td class="py-3">
-                <button onclick="window.location.hash='#admin/edit/${p.id}'" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
-                  Editar
-                </button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+  // Render Orders
+  if (!orders || orders.length === 0) {
+    orderListContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No hay pedidos a\u00fan.</p>';
+  } else {
+    orderListContainer.innerHTML = `
+      <div class="space-y-4">
+        ${orders.map(order => {
+          const statuses = ['Pendiente', 'Procesando', 'Enviado', 'Entregado', 'Cancelado'];
+          return `
+            <div class="border border-gray-100 rounded-2xl p-4 md:flex justify-between items-center hover:bg-gray-50 transition-colors">
+              <div class="mb-4 md:mb-0">
+                <div class="flex items-center gap-3 mb-1">
+                  <span class="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">ID: ${order.id.slice(0,8)}...</span>
+                  <span class="text-sm font-medium text-gray-500">${new Date(order.createdAt?.toDate?.() || Date.now()).toLocaleString()}</span>
+                </div>
+                <div class="text-gray-900 text-sm mb-2">
+                  <span class="font-medium text-gray-500 mr-1">Usuario:</span> ${order.userId}
+                </div>
+                <div class="font-medium text-gray-900 line-clamp-2 text-sm max-w-lg">
+                  ${order.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                </div>
+                <div class="mt-2 text-indigo-600 font-bold">$${order.total}</div>
+              </div>
+              <div class="flex items-center bg-gray-100 rounded-lg p-1">
+                <select onchange="window._updateOrderStatus('${order.id}', this.value)" class="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer ${
+                  order.status?.toLowerCase() === 'entregado' ? 'text-green-600' : 
+                  order.status?.toLowerCase() === 'cancelado' ? 'text-red-600' : 'text-indigo-600'
+                }">
+                  ${statuses.map(s => `<option value="${s.toLowerCase()}" ${order.status?.toLowerCase() === s.toLowerCase() ? 'selected' : ''}>${s}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
 };
 
 const renderEditProductPage = async (id) => {
@@ -646,3 +696,19 @@ const renderOrdersPage = async () => {
 
 // Expose Cart to window for inline onclicks
 window.Cart = Cart;
+
+// Expose admin helper functions
+window._updateOrderStatus = async (orderId, newStatus) => {
+  try {
+    await updateOrderStatus(orderId, newStatus);
+    // Visual feedback handled by select box itself immediately
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium animate-pulse';
+    toast.textContent = 'Estado actualizado';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+  } catch (error) {
+    console.error('Failed to update status:', error);
+    alert('Error al actualizar el estado del pedido.');
+  }
+};
