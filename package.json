@@ -7,8 +7,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "start": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
-    "build:css": "npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css",
-    "watch:css": "npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch",
+    "build:css": "npx @tailwindcss/cli -i ./src/input.css -o ./output.css",
+    "watch:css": "npx @tailwindcss/cli -i ./src/input.css -o ./output.css --watch",
     "lint": "echo 'No linting needed for native JS'"
   },
   "dependencies": {
