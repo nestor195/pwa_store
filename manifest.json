@@ -2,7 +2,7 @@
   "name": "3D Print Store",
   "short_name": "3DStore",
   "description": "Tienda de creaciones impresas en 3D",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
