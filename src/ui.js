@@ -41,7 +41,7 @@ const renderNavbar = () => {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between h-16 items-center">
         <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.location.hash=''">
-          <img src="logo.png" class="h-8 w-8 mr-2" alt="Logo">
+          <img src="logo.png" class="h-6 w-6 mr-2" alt="Logo">
           <span class="text-2xl font-bold text-indigo-600">4DPrint</span>
         </div>
         <div class="flex items-center space-x-4">
